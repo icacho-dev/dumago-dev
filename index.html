@@ -1,0 +1,1046 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="es-mx">
+
+<head profile="http://www.w3.org/2005/10/profile">
+	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+	<!--<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">-->
+	<title> Búsquedas Exactas</title>
+	<meta name="description" content="">
+	<meta name="author" content="">
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<!-- FAVICONS -->
+	<link rel="shortcut icon" href="img/logo-cns.png" type="image/x-icon">
+	<link rel="icon" href="img/logo-cns.png" type="image/x-icon">
+	
+	
+	<!--================================================== -->
+	<!-- PACE LOADER - turn this on if you want ajax loading to show (caution: uses lots of memory on iDevices)-->
+	<script data-pace-options='{ "restartOnRequestAfter": true }' ></script>
+	<!--  Estilo Propio -->
+	<link rel="stylesheet" type="text/css" media="screen" href="css/cns.css">
+	<!-- jQuery + jQueryUI -->
+	<script src="inc/jquery/jquery-2.1.4.min.js"></script>
+	<!--  jQuery Form -->
+	<script src="inc/form/jquery.form.js"></script>
+	<!--  Semantic UI -->
+	<script src="inc/semantic/semantic.js"></script>
+	<link rel="stylesheet" type="text/css" media="screen" href="inc/semantic/semantic.css">
+	<!-- DateRangePicker -->
+	<script type="text/javascript" src="inc/daterangepicker/moment.min.js"></script>
+	<script type="text/javascript" src="inc/daterangepicker/daterangepicker.js"></script>
+	<link rel="stylesheet" type="text/css" media="all" href="inc/daterangepicker/daterangepicker.css" />
+	<!-- w2UI -->
+	<script type="text/javascript" src="inc/w2ui/w2ui-1.4.3.js"></script>
+	<link rel="stylesheet" type="text/css" media="all" href="inc/w2ui/w2ui-1.4.3.css" />
+	<!--[if IE 8]>
+	<h1>Your browser is out of date, please update your browser by going to www.microsoft.com/download</h1>
+	<![endif]-->
+	<!-- PAGE RELATED PLUGIN(S)
+-->
+	<script type="text/javascript">
+		$(document).ready(function() {
+
+			$('form').ajaxForm();
+			
+			$('#p_f_nacimiento').daterangepicker({
+					autoUpdateInput: false,
+					singleDatePicker: true,
+					showDropdowns: true
+				}/*, 
+				function(start, end, label) {
+					/*var years = moment().diff(start, 'years');
+					alert("You are " + years + " years old.");
+			}*/);
+			
+			$('#p_f_nacimiento').on('apply.daterangepicker', function(ev, picker) {
+				$(this).val(picker.startDate.format('DD/MM/YYYY'));
+			});
+			
+			$('.ui.accordion').accordion({
+				onOpening: function(){
+					$("#exactasOpenIcon").removeClass('add');
+					$("#exactasOpenIcon").addClass('minus');
+				},
+				onClosing: function(){
+					$("#exactasOpenIcon").removeClass('minus');
+					$("#exactasOpenIcon").addClass('add');
+				}
+			});
+			
+			$('#searchHeader .menu .item').tab({
+				context: $('#searchHeader')
+			});
+			
+			$('#btnSearch').on('click',function(){
+				//alert($("#entidadMenu a.active").attr('data-tab'));
+				switch($("#entidadMenu a.active").attr('data-tab')){
+					case "tab_persona":
+						//alert($('#form_persona').formSerialize());
+						var col_selected = new Array();
+						$("input:checkbox[name=check_PersonaColecciones]:checked").each(function() {
+							col_selected.push($(this).val());
+						});
+						if(col_selected.length == 0){
+							alert("Selecciona al menos una fuente");
+							$("#loadingDiv").removeClass("active");
+							return false;
+						}
+						$("#btnSearch").addClass("loading");
+						$("#btnClear").addClass("disabled");
+						var t0 = performance.now();
+						$('#form_persona').ajaxSubmit({
+							//XAMPP
+							//url:'http://localhost/',
+							//Gateway
+							//url:'http://192.168.226.128/Busquedas/busquedas',
+							//VMWare Lenovo
+							url:'http://192.168.68.128/Busquedas/search',
+							type: 'POST',
+							dataType: 'text',
+							data: {
+								//'id':$("ul#secciones_busqueda li.active").attr('id'),
+								'colecciones':col_selected
+							},
+							success: function(data){
+								//alert(data);
+								//$('#containerResults').html(data);
+								if(w2ui['tabsResults'])
+									w2ui['tabsResults'].destroy();
+								$('#tabsResults').w2tabs({
+									name: 'tabsResults',
+									active: 'tabResultPrincipal',
+									tabs: [
+										{ id: 'tabResultPrincipal', caption: 'Búsqueda Principal' }
+									],
+									onClick: function (event) {
+										//alert(event.target);
+										$("#containerResults > div").hide();
+										//$('div[tabresult:'+event.target+']').show();
+										$('#'+event.target).show();
+										
+									},
+									onClose: function(event) {
+										$("#containerResults > div").hide();
+										$('#tabResultPrincipal').show();
+										w2ui['tabsResults'].select('tabResultPrincipal');
+									}
+								});
+								var resultDiv = $('<div/>', {
+									"class" : 'ui segment',
+									"id": "tabResultPrincipal"
+								}).html(data);
+								$("#containerResults").html(resultDiv);
+								$("#tabResultPrincipal .tiempo").html("("+((performance.now()-t0)/1000).toFixed(3)+" segundos)");
+								$("#segmentTotalColeccion").html('<div class="ui top attached label customHugeLabel">Total por Fuente</div>');
+								$("#segmentFacet").html('<div class="ui top attached label customHugeLabel">Taxonomías</div>');
+								$("#segmentFacet").hide();
+								$("#content").show();
+								$("#segmentTotalColeccion").addClass("loading");
+								$.ajax({
+									url:'http://192.168.68.128/Busquedas/searchtotal',
+									type: 'POST',
+									dataType: 'text',
+									data: {
+										'colecciones':col_selected
+									},
+									success: function(data){
+										$("#segmentTotalColeccion").html(data);
+										$("#segmentTotalColeccion").removeClass("loading");
+									},
+									error: function(){
+										alert("Error al consultar los totales por fuente");
+									}
+								});
+							},
+							error: function(xhr,textStatus,err){
+								console.log("readyState: " + xhr.readyState);
+								console.log("responseText: "+ xhr.responseText);
+								console.log("status: " + xhr.status);
+								console.log("text status: " + textStatus);
+								console.log("error: " + err);
+							},
+							complete: function(){
+								$("#btnSearch").removeClass("loading");
+								$("#btnClear").removeClass("disabled");
+							}
+						});
+						break;
+					case "tab_vehiculo":
+						//alert($('#form_vehiculo').formSerialize());
+						var col_selected = new Array();
+						$("input:checkbox[name=check_VehiculoColecciones]:checked").each(function() {
+							col_selected.push($(this).val());
+						});
+						if(col_selected.length == 0){
+							alert("Selecciona al menos una fuente");
+							$("#loadingDiv").removeClass("active");
+							return false;
+						}
+						$("#btnSearch").addClass("loading");
+						$("#btnClear").addClass("disabled");
+						var t0 = performance.now();
+						$('#form_vehiculo').ajaxSubmit({
+							//XAMPP
+							//url:'http://localhost/',
+							//Gateway
+							//url:'http://192.168.226.128/Busquedas/busquedas',
+							//VMWare Lenovo
+							url:'http://192.168.68.128/Busquedas/search',
+							type: 'POST',
+							dataType: 'text',
+							data: {
+								//'id':$("ul#secciones_busqueda li.active").attr('id'),
+								'colecciones':col_selected
+							},
+							success: function(data){
+								//alert(data);
+								//$('#containerResults').html(data);
+								if(w2ui['tabsResults'])
+									w2ui['tabsResults'].destroy();
+								$('#tabsResults').w2tabs({
+									name: 'tabsResults',
+									active: 'tabResultPrincipal',
+									tabs: [
+										{ id: 'tabResultPrincipal', caption: 'Búsqueda Principal' }
+									],
+									onClick: function (event) {
+										//alert(event.target);
+										$("#containerResults > div").hide();
+										//$('div[tabresult:'+event.target+']').show();
+										$('#'+event.target).show();
+										
+									},
+									onClose: function(event) {
+										$("#containerResults > div").hide();
+										$('#tabResultPrincipal').show();
+										w2ui['tabsResults'].select('tabResultPrincipal');
+									}
+								});
+								var resultDiv = $('<div/>', {
+									"class" : 'ui segment',
+									"id": "tabResultPrincipal"
+								}).html(data);
+								$("#containerResults").html(resultDiv);
+								$("#tabResultPrincipal .tiempo").html("("+((performance.now()-t0)/1000).toFixed(3)+" segundos)");
+								$("#segmentTotalColeccion").html('<div class="ui top attached label customHugeLabel">Total por Fuente</div>');
+								$("#segmentFacet").html('<div class="ui top attached label customHugeLabel">Taxonomías</div>');
+								$("#segmentFacet").hide();
+								$("#content").show();
+								$("#segmentTotalColeccion").addClass("loading");
+								$.ajax({
+									url:'http://192.168.68.128/Busquedas/searchtotal',
+									type: 'POST',
+									dataType: 'text',
+									data: {
+										'colecciones':col_selected
+									},
+									success: function(data){
+										$("#segmentTotalColeccion").html(data);
+										$("#segmentTotalColeccion").removeClass("loading");
+									},
+									error: function(){
+										alert("Error al consultar los totales por fuente");
+									}
+								});
+							},
+							error: function(xhr,textStatus,err){
+								console.log("readyState: " + xhr.readyState);
+								console.log("responseText: "+ xhr.responseText);
+								console.log("status: " + xhr.status);
+								console.log("text status: " + textStatus);
+								console.log("error: " + err);
+							},
+							complete: function(){
+								$("#btnSearch").removeClass("loading");
+								$("#btnClear").removeClass("disabled");
+							}
+						});
+						break;
+					case "tab_arma":
+						//alert($('#form_arma').formSerialize());
+						var col_selected = new Array();
+						$("input:checkbox[name=check_ArmaColecciones]:checked").each(function() {
+							col_selected.push($(this).val());
+						});
+						if(col_selected.length == 0){
+							alert("Selecciona al menos una fuente");
+							$("#loadingDiv").removeClass("active");
+							return false;
+						}
+						$("#btnSearch").addClass("loading");
+						$("#btnClear").addClass("disabled");
+						var t0 = performance.now();
+						$('#form_arma').ajaxSubmit({
+							//XAMPP
+							//url:'http://localhost/',
+							//Gateway
+							//url:'http://192.168.226.128/Busquedas/busquedas',
+							//VMWare Lenovo
+							url:'http://192.168.68.128/Busquedas/search',
+							type: 'POST',
+							dataType: 'text',
+							data: {
+								//'id':$("ul#secciones_busqueda li.active").attr('id'),
+								'colecciones':col_selected
+							},
+							success: function(data){
+								//alert(data);
+								//$('#containerResults').html(data);
+								if(w2ui['tabsResults'])
+									w2ui['tabsResults'].destroy();
+								$('#tabsResults').w2tabs({
+									name: 'tabsResults',
+									active: 'tabResultPrincipal',
+									tabs: [
+										{ id: 'tabResultPrincipal', caption: 'Búsqueda Principal' }
+									],
+									onClick: function (event) {
+										//alert(event.target);
+										$("#containerResults > div").hide();
+										//$('div[tabresult:'+event.target+']').show();
+										$('#'+event.target).show();
+										
+									},
+									onClose: function(event) {
+										$("#containerResults > div").hide();
+										$('#tabResultPrincipal').show();
+										w2ui['tabsResults'].select('tabResultPrincipal');
+									}
+								});
+								var resultDiv = $('<div/>', {
+									"class" : 'ui segment',
+									"id": "tabResultPrincipal"
+								}).html(data);
+								$("#containerResults").html(resultDiv);
+								$("#tabResultPrincipal .tiempo").html("("+((performance.now()-t0)/1000).toFixed(3)+" segundos)");
+								$("#segmentTotalColeccion").html('<div class="ui top attached label customHugeLabel">Total por Fuente</div>');
+								$("#segmentFacet").html('<div class="ui top attached label customHugeLabel">Taxonomías</div>');
+								$("#segmentFacet").hide();
+								$("#content").show();
+								$("#segmentTotalColeccion").addClass("loading");
+								$.ajax({
+									url:'http://192.168.68.128/Busquedas/searchtotal',
+									type: 'POST',
+									dataType: 'text',
+									data: {
+										'colecciones':col_selected
+									},
+									success: function(data){
+										$("#segmentTotalColeccion").html(data);
+										$("#segmentTotalColeccion").removeClass("loading");
+									},
+									error: function(){
+										alert("Error al consultar los totales por fuente");
+									}
+								});
+							},
+							error: function(xhr,textStatus,err){
+								console.log("readyState: " + xhr.readyState);
+								console.log("responseText: "+ xhr.responseText);
+								console.log("status: " + xhr.status);
+								console.log("text status: " + textStatus);
+								console.log("error: " + err);
+							},
+							complete: function(){
+								$("#btnSearch").removeClass("loading");
+								$("#btnClear").removeClass("disabled");
+							}
+						});
+						break;
+					case "tab_ubicacion":
+						//alert($('#form_ubicacion').formSerialize());
+						var col_selected = new Array();
+						$("input:checkbox[name=check_UbicacionColecciones]:checked").each(function() {
+							col_selected.push($(this).val());
+						});
+						if(col_selected.length == 0){
+							alert("Selecciona al menos una fuente");
+							$("#loadingDiv").removeClass("active");
+							return false;
+						}
+						$("#btnSearch").addClass("loading");
+						$("#btnClear").addClass("disabled");
+						var t0 = performance.now();
+						$('#form_ubicacion').ajaxSubmit({
+							//XAMPP
+							//url:'http://localhost/',
+							//Gateway
+							//url:'http://192.168.226.128/Busquedas/busquedas',
+							//VMWare Lenovo
+							url:'http://192.168.68.128/Busquedas/search',
+							type: 'POST',
+							dataType: 'text',
+							data: {
+								//'id':$("ul#secciones_busqueda li.active").attr('id'),
+								'colecciones':col_selected
+							},
+							success: function(data){
+								//alert(data);
+								//$('#containerResults').html(data);
+								if(w2ui['tabsResults'])
+									w2ui['tabsResults'].destroy();
+								$('#tabsResults').w2tabs({
+									name: 'tabsResults',
+									active: 'tabResultPrincipal',
+									tabs: [
+										{ id: 'tabResultPrincipal', caption: 'Búsqueda Principal' }
+									],
+									onClick: function (event) {
+										//alert(event.target);
+										$("#containerResults > div").hide();
+										//$('div[tabresult:'+event.target+']').show();
+										$('#'+event.target).show();
+										
+									},
+									onClose: function(event) {
+										$("#containerResults > div").hide();
+										$('#tabResultPrincipal').show();
+										w2ui['tabsResults'].select('tabResultPrincipal');
+									}
+								});
+								var resultDiv = $('<div/>', {
+									"class" : 'ui segment',
+									"id": "tabResultPrincipal"
+								}).html(data);
+								$("#containerResults").html(resultDiv);
+								$("#tabResultPrincipal .tiempo").html("("+((performance.now()-t0)/1000).toFixed(3)+" segundos)");
+								$("#segmentTotalColeccion").html('<div class="ui top attached label customHugeLabel">Total por Fuente</div>');
+								$("#segmentFacet").html('<div class="ui top attached label customHugeLabel">Taxonomías</div>');
+								$("#segmentFacet").hide();
+								$("#content").show();
+								$("#segmentTotalColeccion").addClass("loading");
+								$.ajax({
+									url:'http://192.168.68.128/Busquedas/searchtotal',
+									type: 'POST',
+									dataType: 'text',
+									data: {
+										'colecciones':col_selected
+									},
+									success: function(data){
+										$("#segmentTotalColeccion").html(data);
+										$("#segmentTotalColeccion").removeClass("loading");
+									},
+									error: function(){
+										alert("Error al consultar los totales por fuente");
+									}
+								});
+							},
+							error: function(xhr,textStatus,err){
+								console.log("readyState: " + xhr.readyState);
+								console.log("responseText: "+ xhr.responseText);
+								console.log("status: " + xhr.status);
+								console.log("text status: " + textStatus);
+								console.log("error: " + err);
+							},
+							complete: function(){
+								$("#btnSearch").removeClass("loading");
+								$("#btnClear").removeClass("disabled");
+							}
+						});
+						break;
+					default:
+						break;
+				}
+			});
+			
+			$('#btnClear').on('click',function(){
+				switch($("#entidadMenu a.active").attr('data-tab')){
+					case "tab_persona":
+					$('#form_persona').clearForm();
+					break;
+					case "tab_vehiculo":
+					$('#form_vehiculo').clearForm();
+					break;
+					case "tab_arma":
+					$('#form_arma').clearForm();
+					break;
+					case "tab_ubicacion":
+					$('#form_ubicacion').clearForm();
+					break;
+					default:
+					break;
+				}
+			});
+			
+			$('.list .master.checkbox').checkbox({
+				// check all children
+				onChecked: function() {
+					var $childCheckbox  = $(this).closest('.checkbox').siblings('.list').find('.checkbox');
+					$childCheckbox.checkbox('check');
+				},
+				// uncheck all children
+				onUnchecked: function() {
+					var $childCheckbox  = $(this).closest('.checkbox').siblings('.list').find('.checkbox');
+					$childCheckbox.checkbox('uncheck');
+				}
+			});
+			
+			$('.list .child.checkbox').checkbox({
+				// Fire on load to set parent value
+				fireOnInit : true,
+				// Change parent state on each child checkbox change
+				onChange   : function() {
+					var
+						$listGroup      = $(this).closest('.list'),
+						$parentCheckbox = $listGroup.closest('.item').children('.checkbox'),
+						$checkbox       = $listGroup.find('.checkbox'),
+						allChecked      = true,
+						allUnchecked    = true
+					;
+					// check to see if all other siblings are checked or unchecked
+					$checkbox.each(function() {
+						if( $(this).checkbox('is checked') )
+							allUnchecked = false;
+						else
+							allChecked = false;
+					});
+					// set parent checkbox state, but dont trigger its onChange callback
+					if(allChecked)
+						$parentCheckbox.checkbox('set checked');
+					else if(allUnchecked)
+						$parentCheckbox.checkbox('set unchecked');
+					else
+						$parentCheckbox.checkbox('set indeterminate');
+				}
+			});
+			
+			$('#segmentTotalColeccion').on('click','button.total',function(){
+				//alert($(this).attr('collection'));
+				$('#containerResults').addClass('loading');
+				$("#segmentFacet").show();
+				$("#segmentFacet").addClass("loading");
+				var collection = $(this).attr('collection');
+				var t0 = performance.now();
+				$.ajax({
+					url:'http://192.168.68.128/Busquedas/collectionfilter',
+					type: 'POST',
+					dataType: 'text',
+					data: {
+						'collection':collection
+					},
+					success: function(data){
+						$("#containerResults > div").hide();
+						w2ui['tabsResults'].add({ id: 'tabResultColFilter-'+collection, caption: collection, closable: true });
+						w2ui['tabsResults'].select('tabResultColFilter-'+collection);
+						var resultDiv = $('<div/>', {
+							"class" : 'ui segment',
+							"id": "tabResultColFilter-"+collection
+						}).html(data);
+						$("#containerResults").append(resultDiv);
+						$("#tabResultColFilter-"+collection+" i.tiempo").html("("+((performance.now()-t0)/1000).toFixed(3)+" segundos)");
+						$.ajax({
+							url:'http://192.168.68.128/Busquedas/facet',
+							type: 'POST',
+							dataType: 'text',
+							success: function(data){
+								$("#segmentFacet").html(data);
+								$("#segmentFacet").removeClass("loading");
+							},
+							error: function(){
+								alert("Error al consultar los facetas de la fuente");
+							}
+						});
+					},
+					error: function(){
+						alert("Error al consultar los registros de la fuente");
+					},
+					complete: function(){
+						$('#containerResults').removeClass('loading');
+					}
+				});
+			});
+			
+			$('#segmentFacet').on('click','button.facet',function(){
+				var facetInfo = $(this).attr('facet-name')+"-"+$(this).attr('facet-value');
+				alert(facetInfo);
+				w2ui['tabsResults'].add({ id: 'tabResultFacetFilter-'+facetInfo, caption: facetInfo, closable: true });
+				w2ui['tabsResults'].select('tabResultFacetFilter-'+facetInfo);
+			});
+			
+		})
+	</script>
+</head>
+
+<body>
+	<!-- div id="loadingDiv" class="ui dimmer">
+		<div class="ui large text loader">Cargando</div>
+	</div -->
+	
+	<!-- HEADER -->
+	<div class="ui fluid container header">
+		<div class="ui two column grid">
+			<div class="column">
+				<img src="img/logo-segob-y-cns-01.png" alt="" style="max-height: 50px; padding-right: 5px;">
+				<img src="img/logo-pm-01.png" alt="" class="" />
+			</div>
+			<div class="right aligned column">
+				<img src="img/nl-gov.gif" alt="" style="height: 50px; padding-right: 5px;">
+				<div style="display:inline-block !important;vertical-align: top !important;">
+					<span>Gobierno de Nuevo León <i class="building icon"></i></span>
+					<br>
+					<span>Únidad Antisecuestros <i class="marker icon"></i></span>
+					<br>
+					<span>Perez Martinez Juan <i class="user icon"></i></span>
+				</div>
+				<img src="img/male.png" alt="" style="height: 50px;">
+			</div>
+		</div>
+	</div>
+	<!-- END HEADER -->
+	
+	<div id="searchHeader" class="ui fluid container">
+		<div id="tabsPrincipal" class="ui tabular menu">
+			<a class="active red item" data-tab="exactas"><i class="zoom icon"></i>Búsquedas Exactas</a>
+			<!-- a class="red item" data-tab="abiertas"><i class="search icon"></i>Búsquedas Abiertas</a -->
+		</div>
+		<!-- div class="ui fluid container criterios" -->
+		<div class="ui active tab" data-tab="exactas">
+			<div class="ui fluid styled accordion">
+				<div class="active title">
+					<!-- div class="ui top attached black label customBigLabel"><i class="list icon"></i>Criterios de Búsqueda</div -->
+					<i class="list icon"></i>Criterios de Búsqueda<i id="exactasOpenIcon" class="minus square icon" style="float:right;"></i>
+				</div>
+				<div class="active content">
+					<div class="ui grid">
+						<div class="two wide column">
+							<div id="entidadMenu" class="ui vertical tabular menu">
+								<a class="active item" data-tab="tab_persona"><i class="user icon customNoneFloatIcon"></i>Persona</a>
+								<a class="item" data-tab="tab_ubicacion"><i class="marker icon customNoneFloatIcon"></i>Ubicación</a>
+								<a class="item" data-tab="tab_vehiculo"><i class="car icon customNoneFloatIcon"></i>Vehículo</a>
+								<a class="item" data-tab="tab_arma"><i class="bullseye icon customNoneFloatIcon"></i>Arma</a>
+							</div>
+						</div>
+						<div class="fourteen wide column">
+							<div></div>
+							<div class="ui active tab" data-tab="tab_persona">
+								<div class="ui grid">
+									<div class="ten wide column">
+										<div class="ui form" id="div_form_persona">
+											<form id="form_persona">
+												<div class="three fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="p_nombre" name="p_nombre" placeholder="Nombre(s)">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="p_ap_paterno" name="p_ap_paterno" placeholder="Apellido Paterno">
+															<i class="tag icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="p_ap_materno" name="p_ap_materno" placeholder="Apellido Materno">
+															<i class="tag icon"></i>
+														</div>
+													</div>
+												</div>
+												<div class="three fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" name="p_rfc" id="p_rfc" placeholder="RFC">
+															<i class="payment icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" name="p_curp" id="p_curp" placeholder="CURP">
+															<i class="payment icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" name="p_cuip" name="p_cuip" placeholder="CUIP">
+															<i class="payment icon"></i>
+														</div>
+													</div>
+												</div>
+												<div class="three fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" name="p_cib" name="p_cib" placeholder="CIB">
+															<i class="payment icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" name="p_alias" name="p_alias" placeholder="Alias">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" name="p_num_pasaporte" id="p_num_pasaporte" placeholder="Número de Pasaporte">
+															<i class="payment icon"></i>
+														</div>
+													</div>
+												</div>
+												<div class="two fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" name="p_num_licencia" id="p_num_licencia" placeholder="Número de Licencia">
+															<i class="car icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" name="p_f_nacimiento" id="p_f_nacimiento" placeholder="Fecha de Nacimiento">
+															<i class="calendar icon"></i>
+														</div>
+													</div>
+												</div>
+											</form>
+										</div>
+									</div>
+									<div class="six wide column">
+										<div class="ui segment">
+											<div class="ui top attached label"><i class="filter icon"></i>Buscar en las Fuentes Seleccionadas</div>
+											<div class="ui list colecciones">
+												<div class="item">
+													<div class="ui master checkbox">
+														<input name="check_TodasPersonaColecciones" type="checkbox">
+														<label>Todas las fuentes</label>
+													</div>
+													<div class="ui relaxed list">
+														<div class="item">
+															<div class="ui child checkbox">
+																<input name="check_PersonaColecciones" type="checkbox" value="s1_oficiales_30108_1">
+																<label>Licencias de Conducir</label>
+															</div>
+														</div>
+														<div class="item">
+															<div class="ui child checkbox">
+																<input name="check_PersonaColecciones" type="checkbox" value="s1_oficiales_30120_1">
+																<label>Registro Nacional de Personal de Seguridad</label>
+															</div>
+														</div>
+														<div class="item">
+															<div class="ui child checkbox">
+																<input name="check_PersonaColecciones" type="checkbox" value="s1_oficiales_43551_1">
+																<label>Registro Nacional de Mandamientos Judiciales</label>
+															</div>
+														</div>
+														<div class="item">
+															<div class="ui child checkbox">
+																<input name="check_PersonaColecciones" type="checkbox" value="s1_oficiales_30123_1">
+																<label>Registro de Indiciados, Procesados, y Sentenciados (RIPS)</label>
+															</div>
+														</div>
+														<!-- div class="item">
+															<div class="ui child checkbox">
+																<input name="check_PersonaColecciones" type="checkbox" value="s1_0_30118_1">
+																<label>Informe Policial Homologado</label>
+															</div>
+														</div>
+														<div class="item">
+															<div class="ui child checkbox">
+																<input name="check_PersonaColecciones" type="checkbox" value="s1_oficiales_30110_1">
+																<label>Registro Público Vehicular</label>
+															</div>
+														</div>
+														<div class="item">
+															<div class="ui child checkbox">
+																<input name="check_PersonaColecciones" type="checkbox" value="s1_oficiales_30205_1">
+																<label>Vehículos Robados y Recuperados</label>
+															</div>
+														</div -->
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="ui tab" data-tab="tab_vehiculo">
+								<div class="ui grid">
+									<div class="ten wide column">
+										<div class="ui form" id="div_form_vehiculo">
+											<form id="form_vehiculo">
+												<div class="three fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="v_marca" name="v_marca" placeholder="Marca">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="v_placa" name="v_placa" placeholder="Placa">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="v_modelo" name="v_modelo" placeholder="Modelo">
+															<i class="user icon"></i>
+														</div>
+													</div>
+												</div>
+												<div class="three fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="v_num_motor" name="v_num_motor" placeholder="No. de Motor">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="v_color" name="v_color" placeholder="Color">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="v_modelo" name="v_tipo" placeholder="Tipo">
+															<i class="user icon"></i>
+														</div>
+													</div>
+												</div>
+												<div class="two fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="v_submarca" name="v_submarca" placeholder="Submarca">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="v_vin" name="v_vin" placeholder="VIN">
+															<i class="user icon"></i>
+														</div>
+													</div>
+												</div>
+											</form>
+										</div>
+									</div>
+									<div class="six wide column">
+										<div class="ui segment">
+											<div class="ui top attached label"><i class="filter icon"></i>Buscar en las Fuentes Seleccionadas</div>
+											<div class="ui list colecciones">
+												<div class="item">
+													<div class="ui master checkbox">
+														<input name="check_TodasVehiculoColecciones" type="checkbox">
+														<label>Todas las fuentes</label>
+													</div>
+													<div class="ui relaxed list">
+														<div class="item">
+															<div class="ui child checkbox">
+																<input name="check_VehiculoColecciones" type="checkbox" value="s1_oficiales_30123_1">
+																<label>Registro de Indiciados, Procesados, y Sentenciados (RIPS)</label>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="ui tab" data-tab="tab_arma">
+								<div class="ui grid">
+									<div class="ten wide column">
+										<div class="ui form" id="div_form_arma">
+											<form id="form_arma">
+												<div class="two fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="a_marca" name="a_marca" placeholder="Marca">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="a_tipo" name="a_tipo" placeholder="Tipo">
+															<i class="user icon"></i>
+														</div>
+													</div>
+												</div>
+												<div class="two fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="a_matricula" name="a_matricula" placeholder="Matricula">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="a_serie" name="a_serie" placeholder="Serie">
+															<i class="user icon"></i>
+														</div>
+													</div>
+												</div>
+												<div class="field">
+													<div class="ui left icon input">
+														<input type="text" id="a_modelo" name="a_modelo" placeholder="Modelo">
+														<i class="user icon"></i>
+													</div>
+												</div>
+											</form>
+										</div>
+									</div>
+									<div class="six wide column">
+										<div class="ui segment">
+											<div class="ui top attached label"><i class="filter icon"></i>Buscar en las Fuentes Seleccionadas</div>
+											<div class="ui list colecciones">
+												<div class="item">
+													<div class="ui master checkbox">
+														<input name="check_TodasArmaColecciones" type="checkbox">
+														<label>Todas las fuentes</label>
+													</div>
+													<div class="ui relaxed list">
+														<div class="item">
+															<div class="ui child checkbox">
+																<input name="check_ArmaColecciones" type="checkbox" value="s1_oficiales_30306_1">
+																<label>Registro Nacional de Armamento y Equipo RENAE</label>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="ui tab" data-tab="tab_ubicacion">
+								<div class="ui grid">
+									<div class="ten wide column">
+										<div class="ui form" id="div_form_ubicacion">
+											<form id="form_ubicacion">
+												<div class="two fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="u_pais" name="u_pais" placeholder="País">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="u_estado" name="u_estado" placeholder="Estado">
+															<i class="tag icon"></i>
+														</div>
+													</div>
+												</div>
+												<div class="two fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="u_municipio" name="u_municipio" placeholder="Municipio">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="u_entidad" name="u_entidad" placeholder="Entidad">
+															<i class="tag icon"></i>
+														</div>
+													</div>
+												</div>
+												<div class="two fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="u_calle" name="u_calle" placeholder="Calle">
+															<i class="tag icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="u_colonia" name="u_colonia" placeholder="Colonia">
+															<i class="user icon"></i>
+														</div>
+													</div>
+												</div>
+												<div class="two fields">
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="u_ciudad" name="u_ciudad" placeholder="Ciudad">
+															<i class="user icon"></i>
+														</div>
+													</div>
+													<div class="field">
+														<div class="ui left icon input">
+															<input type="text" id="u_cp" name="u_cp" placeholder="CP">
+															<i class="tag icon"></i>
+														</div>
+													</div>
+												</div>
+											</form>
+										</div>
+									</div>
+									<div class="six wide column">
+										<div class="ui segment">
+											<div class="ui top attached label"><i class="filter icon"></i>Buscar en las Fuentes Seleccionadas</div>
+											<div class="ui list colecciones">
+												<div class="item">
+													<div class="ui master checkbox">
+														<input name="check_TodasUbicacionColecciones" type="checkbox">
+														<label>Todas las fuentes</label>
+													</div>
+													<div class="ui relaxed list">
+														<div class="item">
+															<div class="ui child checkbox">
+																<input name="check_UbicacionColecciones" type="checkbox" value="s1_oficiales_30123_1">
+																<label>Registro de Indiciados, Procesados, y Sentenciados (RIPS)</label>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="ui divider"></div>
+					<div class="ui right aligned container fluid">
+						<button id="btnClear" class="ui labeled icon button customBlueButton">
+							<i class="trash icon"></i>Limpiar
+						</button>
+						<button id="btnSearch" class="ui right labeled icon button customBlueButton">
+							<i class="search icon"></i>Buscar
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<!-- CONTENT -->
+	<div id="content" class="ui fluid container" style="display: none;">
+	
+
+		<div class="ui grid">
+			<div class="five wide column">
+				<div id="segmentTotalColeccion" class="ui segment">
+				</div>
+				<div id="segmentFacet" class="ui segment" style="display: none;">	
+				</div>
+			</div>
+			<div class="eleven wide column">
+				<div id="tabsResults"></div>
+				<div id="containerResults" class="ui container"></div>
+			</div>
+		</div>
+		
+	</div>
+	<!-- END CONTENT -->
+	
+	<!-- FOOTER -->
+	<div class="ui fluid container footer">
+		<div class="ui three column grid">
+			<div class="column"></div>
+			<div class="center aligned column">
+				SUIC<i class="angle right icon"></i>Portal Único<i class="angle right icon"></i>Búsquedas 2.0
+			</div>
+			<div class="right aligned column">
+				<i>Última actividad<i class="clock icon"></i><strong>hace 2 min</strong></i>
+			</div>
+		</div>
+	</div>
+	<!-- END FOOTER -->
+	
+</body>
+
+</html>
